@@ -19,4 +19,3 @@ class UserRead(UserBase):
     role: UserRole
     is_active: bool
     created_at: datetime
-

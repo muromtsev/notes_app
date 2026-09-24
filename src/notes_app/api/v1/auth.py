@@ -12,13 +12,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
+
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(payload: UserCreate, service: AuthServiceDep):
     return await service.register(email=payload.email, password=payload.password)
 
+
 @router.post("/login", response_model=Token)
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-                service: AuthServiceDep,
+async def login(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    service: AuthServiceDep,
 ):
     user = await service.authenticate(
         email=form_data.username,
@@ -26,11 +29,12 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     )
     return service.issue_tokens(user)
 
+
 @router.post("/refresh", response_model=Token)
 async def refresh(payload: RefreshRequest, service: AuthServiceDep):
     return await service.refresh(payload.refresh_token)
 
+
 @router.get("/me", response_model=UserRead)
 async def me(user: CurrentUser):
     return user
-

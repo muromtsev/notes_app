@@ -81,4 +81,3 @@ class AuthService:
         if user is None:
             raise UserNotFoundError("User not found")
         return user
-

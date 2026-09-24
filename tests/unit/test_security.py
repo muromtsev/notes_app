@@ -67,4 +67,3 @@ def test_tokens_are_unique_thanks_to_jti():
     assert p1["jti"] != p2["jti"]
     assert p1["sub"] == p2["sub"]
     assert p1["type"] == p2["type"]
-

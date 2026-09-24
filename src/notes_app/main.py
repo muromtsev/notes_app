@@ -28,6 +28,7 @@ app = FastAPI(
 
 app.include_router(api_router)
 
+
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Единый формат ошибок для всех доменных исключений"""
@@ -36,7 +37,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         content={"detail": exc.message, "code": exc.code},
     )
 
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
-

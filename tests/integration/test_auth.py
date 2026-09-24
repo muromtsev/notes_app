@@ -1,6 +1,5 @@
 import pytest
 
-
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
 REFRESH_URL = "/api/v1/auth/refresh"
@@ -140,4 +139,3 @@ async def test_refresh_with_access_token_fails(client):
         json={"refresh_token": tokens["access_token"]},
     )
     assert resp.status_code == 401
-

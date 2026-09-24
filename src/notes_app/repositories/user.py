@@ -14,9 +14,7 @@ class UserRepository:
         return await self.session.get(User, user_id)
 
     async def get_by_email(self, email: str) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def create(self, email: str, hashed_password: str) -> User:
@@ -25,4 +23,3 @@ class UserRepository:
         await self.session.flush()
         await self.session.refresh(user)
         return user
-

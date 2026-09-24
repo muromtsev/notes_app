@@ -27,4 +27,3 @@ class InvalidTokenError(AppError):
 class UserNotFoundError(AppError):
     status_code = 404
     code = "user_not_found"
-
