@@ -88,7 +88,7 @@ class NoteRepository:
         await self.session.refresh(note)
         return note
 
-    async def delete(self, note: Note) -> Note:
+    async def delete(self, note: Note) -> None:
         await self.session.delete(note)
         await self.session.flush()
 

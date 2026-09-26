@@ -70,8 +70,54 @@ uv run ruff format .      # форматтер
 uv run mypy src           # проверка типов
 ```
 
+## API
+
+Все эндпоинты, кроме `/health`, требуют JWT в заголовке `Authorization: Bearer <token>`.
+
+### Аутентификация
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/api/v1/auth/register` | Регистрация (email + password) |
+| `POST` | `/api/v1/auth/login` | Логин (OAuth2 password flow), возвращает access + refresh |
+| `POST` | `/api/v1/auth/refresh` | Обновление access-токена по refresh |
+| `GET` | `/api/v1/auth/me` | Текущий пользователь |
+
+### Заметки
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `POST` | `/api/v1/notes/` | Создать заметку (с тегами) |
+| `GET` | `/api/v1/notes/` | Список с пагинацией, поиском, фильтром по тегу |
+| `GET` | `/api/v1/notes/{id}` | Одна заметка |
+| `PATCH` | `/api/v1/notes/{id}` | Частичное обновление |
+| `DELETE` | `/api/v1/notes/{id}` | Удалить |
+
+**Параметры списка:** `skip`, `limit` (≤100), `search` (по title), `tag`, `order_by` (`created_at`, `updated_at`, `title`, `id`; с `-` для desc).
+
+**Роли:** `user` видит только свои заметки, `admin` — все.
+
+### Пример запроса
+
+```bash
+# Логин
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -d "username=user@example.com&password=password123"
+
+# Создание заметки
+curl -X POST http://localhost:8000/api/v1/notes/ \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Hello", "content": "World", "tags": ["work"]}'
+```
+
 ## Статус
+
 ### Проект в активной разработке.
 
 + Каркас проекта, конфиг, логирование
 + Модели User / Note / Tag, миграции, тесты
++ Аутентификация (JWT, access + refresh)
++ CRUD заметок, пагинация, теги, роли
++ Логирование запросов, единый формат ошибок
++ CI (GitHub Actions), pre-commit
