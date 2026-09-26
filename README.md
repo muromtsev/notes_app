@@ -18,6 +18,29 @@ REST API для заметок с авторизацией и ролевой м�
 - **Docker Compose** — локальный Postgres
 - **Ruff** + mypy — линт и типы
 
+# Архитектура
+
+Слоистая архитектура — каждый слой отвечает за своё:
+
+```bash
+┌─────────────────────────────────────┐
+│  API (FastAPI routers)              │  ← валидация запроса/ответа, HTTP
+├─────────────────────────────────────┤
+│  Services (бизнес-логика)           │  ← проверки прав, теги, транзакции
+├─────────────────────────────────────┤
+│  Repositories (доступ к БД)         │  ← SQLAlchemy-запросы
+├─────────────────────────────────────┤
+│  Models (SQLAlchemy) + Schemas      │  ← структура данных
+└─────────────────────────────────────┘
+           ↓
+      PostgreSQL
+```
+
+**Ключевые решения:**
+
+- Транзакционная граница — на уровне **сервиса** (`commit()`), репозиторий только `flush()`
+- Доменные ошибки (`AppError`) автоматически конвертируются в HTTP-ответы единого формата
+- Логи структурированные (`structlog`), `request_id` привязан через `contextvars`
 
 ## Запуск локально
 
@@ -37,38 +60,28 @@ cp .env.example .env
 ```
 
 ### 3. Поднять Postgres
+
 ```bash
 docker compose up -d
 ```
 
 ### 4. Применить миграции
+
 ```bash
 uv run alembic upgrade head
 ```
 
 ### 5. Запустить приложение
+
 ```bash
 uv run fastapi dev src/notes_app/main.py
 ```
 
-## Тесты
+API: http://localhost:8000
 
-### Создай тестовую БД один раз:
-```bash
-docker compose exec postgres psql -U notes -d notes -c "CREATE DATABASE notes_test;"
-```
+Swagger: http://localhost:8000/docs
 
-### Запуск:
-```bash
-uv run pytest -v
-```
-
-## Разработка
-```bash
-uv run ruff check .       # линтер
-uv run ruff format .      # форматтер
-uv run mypy src           # проверка типов
-```
+ReDoc: http://localhost:8000/redoc
 
 ## API
 
@@ -93,9 +106,18 @@ uv run mypy src           # проверка типов
 | `PATCH` | `/api/v1/notes/{id}` | Частичное обновление |
 | `DELETE` | `/api/v1/notes/{id}` | Удалить |
 
-**Параметры списка:** `skip`, `limit` (≤100), `search` (по title), `tag`, `order_by` (`created_at`, `updated_at`, `title`, `id`; с `-` для desc).
+**Параметры списка:**
 
-**Роли:** `user` видит только свои заметки, `admin` — все.
+- `skip`
+- `limit` (≤100)
+- `search` (по title)
+- `tag`
+- `order_by` (`created_at`, `updated_at`, `title`, `id`; с `-` для desc)
+
+**Роли:**
+
+- `user` видит только свои заметки
+- `admin` — все
 
 ### Пример запроса
 
@@ -111,13 +133,81 @@ curl -X POST http://localhost:8000/api/v1/notes/ \
   -d '{"title": "Hello", "content": "World", "tags": ["work"]}'
 ```
 
-## Статус
+# Формат ошибок
 
-### Проект в активной разработке.
+Все ошибки приходят в едином формате:
 
-+ Каркас проекта, конфиг, логирование
-+ Модели User / Note / Tag, миграции, тесты
-+ Аутентификация (JWT, access + refresh)
-+ CRUD заметок, пагинация, теги, роли
-+ Логирование запросов, единый формат ошибок
-+ CI (GitHub Actions), pre-commit
+```json
+{
+  "detail": "Invalid email or password",
+  "code": "invalid_credentials"
+}
+```
+
+Для ошибок валидации добавляется список `errors`:
+
+```json
+{
+  "detail": "Validation error",
+  "code": "validation_error",
+  "errors": [
+    { "field": "body.email", "message": "value is not a valid email address", "type": "value_error" }
+  ]
+}
+```
+
+## Тесты
+
+### Создай тестовую БД один раз:
+```bash
+docker compose exec postgres psql -U notes -d notes -c "CREATE DATABASE notes_test;"
+```
+
+### Запуск:
+
+```bash
+uv run pytest -v
+```
+
+## Разработка
+
+```bash
+uv run ruff check .          # линтер
+uv run ruff check . --fix    # линтер с автоправками
+uv run ruff format .         # форматтер
+uv run mypy src              # проверка типов
+uv run pre-commit run --all-files   # все хуки
+```
+
+# Postman
+
+В папке `postman/` — готовая коллекция для ручного тестирования:
+
+- `Notes-API.postman_collection.json` — все запросы с test-scripts
+- `Notes-API-local.postman_environment.json` — переменные окружения
+- `README.md` — инструкция по импорту и использованию
+
+Импортируй оба файла в Postman → выбери environment **Notes API - Local** → запусти `Auth → Register` → `Auth → Login` (токены сохранятся автоматически) → остальные запросы подхватят токен сами.
+
+# CI
+
+GitHub Actions запускается на каждый push и PR в `main`:
+
+- **lint** — Ruff check + Ruff format check + mypy
+- **test** — pytest с реальным PostgreSQL в `services`
+
+Конфиг: `.github/workflows/ci.yml`
+
+# Переменные окружения
+
+Смотри `.env.example`. Ключевые:
+
+| Переменная                     | Назначение                                |
+|--------------------------------|-------------------------------------------|
+| `POSTGRES_*`                   | Подключение к PostgreSQL                  |
+| `POSTGRES_TEST_DB`             | Имя тестовой БД                           |
+| `JWT_SECRET_KEY`               | Секрет для подписи JWT (менять в проде!)  |
+| `JWT_ALGORITHM`                | Алгоритм подписи (HS256)                  |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`  | Время жизни access-токена                 |
+| `REFRESH_TOKEN_EXPIRE_DAYS`    | Время жизни refresh-токена                |
+| `LOG_LEVEL`                    | Уровень логирования                       |

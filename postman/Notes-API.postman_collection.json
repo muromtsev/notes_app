@@ -1,0 +1,394 @@
+{
+  "info": {
+    "_postman_id": "notes-api-collection-0001",
+    "name": "Notes API",
+    "description": "REST API для заметок с авторизацией.\n\n**Переменные окружения:**\n- `base_url` — базовый URL (например, http://localhost:8000)\n- `access_token` — заполняется автоматически после Login\n- `refresh_token` — заполняется автоматически после Login\n- `note_id` — заполняется автоматически после Create Note\n\n**Как пользоваться:**\n1. Импортируй коллекцию и environment\n2. Выбери environment `Notes API - Local` в правом верхнем углу\n3. Запусти `Auth → Register`\n4. Запусти `Auth → Login` — токены сохранятся автоматически\n5. Остальные запросы подхватят токен сами",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Проверка живости сервиса. Не требует авторизации."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 or 409 (already exists)', () => {",
+                  "    pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('User created', () => {",
+                  "        pm.expect(body).to.have.property('email');",
+                  "        pm.expect(body).to.have.property('id');",
+                  "        pm.expect(body).to.not.have.property('hashed_password');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
+            "description": "Регистрация пользователя.\n\n**Body:**\n- `email` — валидный email\n- `password` — минимум 8 символов\n\n**Ответ:** 201 Created с объектом пользователя (без пароля)."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Tokens received', () => {",
+                  "    pm.expect(body).to.have.property('access_token');",
+                  "    pm.expect(body).to.have.property('refresh_token');",
+                  "    pm.expect(body.token_type).to.eql('bearer');",
+                  "});",
+                  "",
+                  "// Сохраняем токены в переменные окружения",
+                  "pm.environment.set('access_token', body.access_token);",
+                  "pm.environment.set('refresh_token', body.refresh_token);",
+                  "console.log('Tokens saved to environment');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "user@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "password123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "OAuth2 password flow.\n\n**Body (form):**\n- `username` — email\n- `password`\n\n**Ответ:** 200 с `access_token` и `refresh_token`. Токены автоматически сохраняются в переменные окружения."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('access_token', body.access_token);",
+                  "pm.environment.set('refresh_token', body.refresh_token);",
+                  "console.log('Tokens refreshed');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            },
+            "description": "Обновление access-токена по refresh-токену.\n\nИспользует `{{refresh_token}}` из переменных окружения. После успеха обновляет оба токена."
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Текущий пользователь. Требует `Authorization: Bearer {{access_token}}`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notes",
+      "item": [
+        {
+          "name": "Create Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Note created', () => {",
+                  "    pm.expect(body).to.have.property('id');",
+                  "    pm.expect(body).to.have.property('title');",
+                  "    pm.expect(body).to.have.property('owner_id');",
+                  "    pm.expect(body).to.have.property('tags');",
+                  "});",
+                  "",
+                  "// Сохраняем id заметки для последующих запросов",
+                  "pm.environment.set('note_id', body.id);",
+                  "console.log('Note id saved:', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"First note\",\n  \"content\": \"Hello from Postman\",\n  \"tags\": [\"work\", \"important\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", ""]
+            },
+            "description": "Создание заметки с тегами.\n\n**Body:**\n- `title` — обязателен, 1–255 символов\n- `content` — опционально\n- `tags` — массив строк, теги создаются автоматически, если их нет\n\n**После успеха** сохраняет `id` заметки в `{{note_id}}`."
+          },
+          "response": []
+        },
+        {
+          "name": "List Notes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/?skip=0&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", ""],
+              "query": [
+                { "key": "skip", "value": "0" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Список заметок с пагинацией. `user` видит только свои, `admin` — все."
+          },
+          "response": []
+        },
+        {
+          "name": "List Notes (filtered)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/?search=first&tag=work&order_by=-created_at&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", ""],
+              "query": [
+                { "key": "search", "value": "first" },
+                { "key": "tag", "value": "work" },
+                { "key": "order_by", "value": "-created_at" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Список с фильтрами.\n\n- `search` — поиск по title (частичное совпадение)\n- `tag` — фильтр по имени тега\n- `order_by` — `created_at`, `updated_at`, `title`, `id`; с `-` для desc"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Note",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/{{note_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", "{{note_id}}"]
+            },
+            "description": "Получить заметку по id. Использует `{{note_id}}` из переменных."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Note (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated title\",\n  \"tags\": [\"updated\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/{{note_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", "{{note_id}}"]
+            },
+            "description": "Частичное обновление. Можно передать только `title`, только `content`, только `tags` или любую комбинацию.\n\n**Важно:** `tags: []` очищает теги, `tags` отсутствует в body — теги не трогаются."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "// Очищаем note_id, чтобы случайно не дёрнуть удалённую заметку",
+                  "pm.environment.unset('note_id');",
+                  "console.log('Note deleted, note_id cleared');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notes/{{note_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notes", "{{note_id}}"]
+            },
+            "description": "Удалить заметку. Возвращает 204 No Content. После успеха очищает `{{note_id}}`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}
